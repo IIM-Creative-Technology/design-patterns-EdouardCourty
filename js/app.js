@@ -1,55 +1,59 @@
-let img = document.querySelector('img');
-const baseValues = {
-  top: img.offsetTop,
-  left: img.offsetLeft
-}
-let slider = document.querySelector("#myRange");
-let maxValueX = window.innerWidth - (img.height / 2);
-let maxValueY = window.innerHeight - (img.width / 2);
-let minValueX = (img.height / 2);
-let minValueY = (img.width / 2);
+const selectLines = document.querySelector('#lines');
+const selectDestination = document.querySelector('#directions');
+const selectStations = document.querySelector('#stations');
+const getSchedulesButton = document.querySelector('#getSchedules');
+const schedulesList = document.querySelector('#schedules');
+const trafficInfoParagraph = document.querySelector('#trafficInfo');
+const averageWaitingTimeParagraph = document.querySelector('#averageWaitingTime');
 
-let imageManager = {
-  goUp: () => {
-    img.style.top = img.offsetTop - 10 + 'px';
-  },
-  goDown: () => {
-    img.style.top = img.offsetTop + 10 + 'px';
-  },
-  goLeft: () => {
-    img.style.left = img.offsetLeft - 10 + 'px';
-  },
-  goRight: () => {
-    img.style.left = img.offsetLeft + 10 + 'px';
-  }
-}
+const REFRESH_RATE = 30000; // Milliseconds
 
-let loop = setInterval(moveToRandomPos, 500);
+MetroRepository.getLines().then(lines => {
+  const metroLines = lines.result.metros;
+  metroLines.forEach(line => {
+    Generator.generateOptionElementForSelect(line.name, line.code, selectLines)
+  })
+})
 
-slider.oninput = function() {
-  clearInterval(loop);
-  loop = setInterval(moveToRandomPos, this.value);
-  document.querySelector('span').innerHTML = this.value;
-}
+selectLines.addEventListener("change", () => {
+  const value = selectLines.value;
+  const id = Array.from(selectLines.childNodes).filter(node => node.innerHTML == value)[0].id
+  MetroRepository.getDestinationsForLine(id).then(destinations => {
+    selectDestination.innerHTML = "";
+    destinations = destinations.result.destinations;
+    destinations.forEach(destination => {
+      Generator.generateOptionElementForSelect(destination.name, destination.way, selectDestination)
+    })
+  })
+  MetroRepository.getStationsForLine(id).then(stations => {
+    selectStations.innerHTML = "";
+    stations = stations.result.stations;
+    stations.forEach(station => {
+      Generator.generateOptionElementForSelect(station.name, station.slug, selectStations)
+    })
+  })
+})
 
-function moveToRandomPos() {
-  const operation = getRandomOperation();
-  imageManager[operation]()
-  if (img.offsetTop > maxValueY || img.offsetTop < minValueY || img.offsetLeft < minValueX || img.offsetLeft > maxValueX) {
-    resetPos()
-  }
-}
+getSchedulesButton.addEventListener('click', () => {
+  getTrainsData()
+  setInterval(getTrainsData, REFRESH_RATE)
+})
 
-function resetPos() {
-  img.style.top = baseValues.top + 'px';
-  img.style.left = baseValues.left + 'px';
-}
-
-function getRandomNumber(min, max) {
-  return Math.floor(Math.random() * max) + min
-}
-
-function getRandomOperation() {
-  const keys = Object.keys(imageManager).filter(key => key !== 'image')
-  return keys[getRandomNumber(0, keys.length)]
+function getTrainsData() {
+  schedulesList.innerHTML = "";
+  trafficInfoParagraph.innerHTML = "";
+  const lineCode = Array.from(selectLines.childNodes).filter(node => node.innerHTML == selectLines.value)[0].id;
+  const destinationWay = Array.from(selectDestination.childNodes).filter(node => node.innerHTML == selectDestination.value)[0].id;
+  const station = Array.from(selectStations.childNodes).filter(node => node.innerHTML == selectStations.value)[0].id;
+  MetroRepository.getSchedule(lineCode, station, destinationWay).then(schedules => {
+    schedules = schedules.result.schedules;
+    schedules.forEach(schedule => {
+      Generator.generateScheduleResult(schedule, schedulesList)
+    })
+    Generator.generateAverageWaitingTime(schedules, averageWaitingTimeParagraph)
+  })
+  MetroRepository.getTrafficForLine(lineCode).then(traffic => {
+    traffic = traffic.result
+    Generator.showTrafficInfo(traffic.message, trafficInfoParagraph)
+  })
 }
