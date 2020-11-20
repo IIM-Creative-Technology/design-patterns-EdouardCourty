@@ -34,9 +34,12 @@ selectLines.addEventListener("change", () => {
   })
 })
 
+let interval;
+
 getSchedulesButton.addEventListener('click', () => {
   getTrainsData()
-  setInterval(getTrainsData, REFRESH_RATE)
+  clearInterval(interval);
+  interval = setInterval(getTrainsData, REFRESH_RATE)
 })
 
 function getTrainsData() {
